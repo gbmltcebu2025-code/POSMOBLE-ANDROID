@@ -2,12 +2,18 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ main, master ]
-  workflow_dispatch: {}
+    branches: [main, master]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    # <-- ADD THIS
+    defaults:
+      run:
+        working-directory: swiftpos
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -41,51 +47,6 @@ jobs:
       - name: Generate native app icon
         run: npx capacitor-assets generate --android
 
-      - name: Add camera & photo permissions to AndroidManifest.xml
-        run: |
-          python3 - << 'PYEOF'
-          import re
-          path = "android/app/src/main/AndroidManifest.xml"
-          with open(path) as f:
-              content = f.read()
-
-          if 'android.permission.CAMERA' not in content:
-              content = re.sub(
-                  r'(<manifest[^>]*>)',
-                  r'\1\n    <uses-permission android:name="android.permission.CAMERA" />',
-                  content,
-                  count=1,
-              )
-
-          if 'READ_MEDIA_IMAGES' not in content:
-              content = re.sub(
-                  r'(<manifest[^>]*>)',
-                  r'\1\n    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />',
-                  content,
-                  count=1,
-              )
-
-          if 'READ_EXTERNAL_STORAGE' not in content:
-              content = re.sub(
-                  r'(<manifest[^>]*>)',
-                  r'\1\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />',
-                  content,
-                  count=1,
-              )
-
-          if 'com.google.mlkit.vision.DEPENDENCIES' not in content:
-              content = re.sub(
-                  r'(<application[^>]*>)',
-                  r'\1\n        <meta-data android:name="com.google.mlkit.vision.DEPENDENCIES" android:value="barcode_ui" />',
-                  content,
-                  count=1,
-              )
-
-          with open(path, "w") as f:
-              f.write(content)
-          print("AndroidManifest.xml patched")
-          PYEOF
-
       - name: Sync web assets into the Android project
         run: npx cap sync android
 
@@ -93,12 +54,12 @@ jobs:
         run: chmod +x android/gradlew
 
       - name: Build debug APK
-        working-directory: android
-        run: ./gradlew assembleDebug
+        run: |
+          cd android
+          ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: SwiftPOS-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-
+          path: swiftpos/android/app/build/outputs/apk/debug/app-debug.apk
